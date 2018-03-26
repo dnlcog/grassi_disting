@@ -1,26 +1,6 @@
 #include "aes.h"
 
-#if ROUNDKEYS_MODE == random
-
-int set_round_keys(const byte *useless, AES_KEY *key) {
-
-  word *rk = key->rd_key;
-  int nb_rounds = key->rounds;
-
-  for(int i = 0 ; i < (nb_rounds + 1) * C ; i++) {
-    rk[i] = (word)(i);
-#if E == 4
-    rk[i] &= 0x0f0f0f0f;
-#endif
-  }
-
-  return(EXIT_SUCCESS);
-}
-
-
-
-
-#elif ROUNDKEYS_MODE == rijndael
+#if ROUNDKEYS == rijndael
 
 static const word rcon[] = {
     0x01000000, 0x02000000, 0x04000000, 0x08000000,
@@ -101,6 +81,27 @@ int key_schedule_inner_function(word *my_word, int index) {
 }
 
 #endif
+
+#elif ROUNDKEYS == random
+
+int set_round_keys(const byte *useless, AES_KEY *key) {
+
+  printf("ici\n");
+  word *rk = key->rd_key;
+  int nb_rounds = key->rounds;
+
+  for(int i = 0 ; i < (nb_rounds + 1) * C ; i++) {
+    rk[i] = (word)(i);
+#if E == 4
+    rk[i] &= 0x0f0f0f0f;
+#endif
+  }
+
+  return(EXIT_SUCCESS);
+}
+
+
+
 
 
 #endif

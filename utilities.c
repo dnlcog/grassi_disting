@@ -24,3 +24,20 @@ void print_state_array(word *state_array) {
     }
   }
 }
+
+void print_bytes(byte *my_bytes, unsigned int n) {
+  for(unsigned int i = 0 ; i < n ; i++)
+    printf("%2x ", my_bytes[i]);
+  printf("\n");
+}
+
+void get_state_array_from_bytes(const byte *my_bytes, word *state_array) {
+  for(int j = 0 ; j < C ; j++)
+    get_word_from_bytes(my_bytes + (R * j), state_array + j);
+}
+
+void get_bytes_from_state_array(const word *state_array, byte *my_bytes) {
+  for(int j = 0 ; j < C ; j++)
+    get_bytes_from_word(state_array[j], my_bytes + (R * j));
+}
+

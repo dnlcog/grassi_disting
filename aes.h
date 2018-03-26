@@ -16,7 +16,7 @@ void free_AES_KEY(AES_KEY *);
 /* aes_core.c functions */
 
 #if (C == 4) && (R == 4)
-void aes_rounds(const word *, word *, const AES_KEY *, int);
+void aes_rounds(const word *, word *, const AES_KEY *, int, int);
 #endif
 
 
@@ -27,5 +27,9 @@ void aes_rounds(const word *, word *, const AES_KEY *, int);
 void get_word_from_bytes(const byte *, word *);
 void get_bytes_from_word(const word, byte *);
 void print_state_array(word *);
+void print_bytes(byte *, unsigned int);
+void get_state_array_from_bytes(const byte *, word *);
+void get_bytes_from_state_array(const word *, byte *);
+
 
 #endif

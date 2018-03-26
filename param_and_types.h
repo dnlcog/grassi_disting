@@ -4,12 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 5
+/* Do not touch R and C except for tables_generator.c */
 #define R 4
 #define C 4
-#define E 4
 
-#define ROUNDKEYS_MODE random
+#define E 4
+#define SBOX rijndael
+#define MIXC rijndael
+
+#define ROUNDKEYS rijndael
+/*#define DEBUG_AES_CORE*/
 
 typedef unsigned int word;
 
