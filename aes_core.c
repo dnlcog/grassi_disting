@@ -1,29 +1,50 @@
+/* aes_core.c */
+
+
+/*
+This file contains functions computing the AES rounds in different ways.
+They have been implemented to be called many times and to be as fast and
+simple as possible.
+Only implemented for C = 4 and R = 4 for the moment.
+*/
+
+
 #include "aes.h"
 
 
+/*
+This preprocessor variable was created for debugging purposes.
+*/
+/*
+#define DEBUG_AES_CORE
+*/
 
 #if (C == 4) && (R == 4)
 
-void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_round_without_mixcolumns, int clear) {
+void aes_rounds(const word32 *in, word32 *out, const AES_KEY *key, const int last_round_without_mixcolumns, int init, int clear) {
 
-  static word *s;
-  static word *t;
+  static word32 *s;
+  static word32 *t;
   static int r;
   static int i = 0;
-  static const word *rk;
+  static const word32 *rk;
 
-  t = (word*)malloc(C * sizeof(word));
-  s =(word*)malloc(C * sizeof(word));
+  /*
+  We allocate memory for the very first call of the function.
+  s and t are itermediate states of the state array.
+  */
+  if(init) {
+    t = (word32*)malloc(C * sizeof(word32));
+    s = (word32*)malloc(C * sizeof(word32));
+  }
+
+  
   r = key->rounds;
   rk = key->rd_key;
 
 
-
-
-
-
 #ifdef DEBUG_AES_CORE
-  byte *my_bytes = (byte*)malloc(C * R * sizeof(byte));
+  byte8 *my_bytes = (byte8*)malloc(C * R * sizeof(byte8));
   get_bytes_from_state_array(rk, my_bytes);
   printf("\nThe key is :\n");
   print_bytes(my_bytes, C * R);
@@ -33,23 +54,15 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
   print_bytes(my_bytes, C * R);
 #endif
 
-
-
-
-
-
+  /* First round key addition. */
   for(i = 0 ; i < C ; i++)
     s[i] = in[i] ^ rk[i];
 
+  
   if(last_round_without_mixcolumns)
     r--;
 
   while(1) {
-
-
-
-
-
 
 
 #ifdef DEBUG_AES_CORE
@@ -62,11 +75,7 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
     print_bytes(my_bytes, C * R);
 #endif
 
-
-
-
-
-
+    /* If all the rounds are done... */
     if(r == 0) {
       for(i = 0 ; i < C ; i++)
 	out[i] = s[i];
@@ -74,6 +83,7 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
       break;
     }
 
+    /* Round for t (odd rounds). */
     for(i = 0 ; i < C ; i++) {
       t[i] =
 	Te0[(s[(i + 0) % C] >> 24) & 0xff] ^
@@ -84,9 +94,6 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
     }
 
     r--;
-
-
-
 
 
 
@@ -106,12 +113,14 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
 
 
 
+    /* If all the rounds are done... */
     if(r == 0) {
       for(i = 0 ; i < C ; i++)
 	out[i] = t[i];  
       break;
     }
   
+    /* Round for s (even rounds). */
     for(i = 0 ; i < C ; i++) {
       s[i] =
 	Te0[(t[(i + 0) % C] >> 24) & 0xff] ^
@@ -125,6 +134,8 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
 
   }
 
+
+  /* Last round without the mix columns step. */
   if(last_round_without_mixcolumns) {
     for(i = 0 ; i < C ; i++) {
       s[i] =
@@ -139,6 +150,11 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
       out[i] = s[i];
   }
 
+
+  /* 
+  Clear the intermediate state arrays at the last
+  call of the function.
+  */
   if(clear) {
     free(t);
     free(s);
@@ -148,58 +164,14 @@ void aes_rounds(const word *in, word *out, const AES_KEY *key, const int last_ro
   get_bytes_from_state_array(out, my_bytes);
   printf("\nOutput :\n");
   print_bytes(my_bytes, C * R);
+  free(my_bytes);
 #endif
 }
 
-  
-#endif
-
-
-
-#ifdef DEBUG_AES_CORE
-int main(void) {
-
-  word *plaintext;
-  plaintext = (word*)malloc(C * sizeof(word));
-  word *ciphertext;
-  ciphertext = (word*)malloc(C * sizeof(word));
-
-  plaintext[0] = 0x00112233;
-  plaintext[1] = 0x44556677;
-  plaintext[2] = 0x8899aabb;
-  plaintext[3] = 0xccddeeff;
-
-  word *user_key;
-  user_key = (word*)malloc(C * sizeof(word));
-
-  user_key[0] = 0x00010203;
-  user_key[1] = 0x04050607;
-  user_key[2] = 0x08090a0b;
-  user_key[3] = 0x0c0d0e0f;
-
-  byte *userKey;
-  userKey = (byte*)malloc(C * R * sizeof(byte));
-
-  get_bytes_from_state_array(user_key, userKey);
-
-  AES_KEY *key;
-  key = (AES_KEY*)malloc(sizeof(AES_KEY));
-  
-  init_AES_KEY(10, key);
-  set_round_keys(userKey, key);
-
-  aes_rounds(plaintext, ciphertext, key, 1, 1);
-
-  free_AES_KEY(key);
-  free(plaintext);
-  free(ciphertext);
-  free(user_key);
-  free(userKey);
-
-  return 0;
-}
 
 #endif
+
+
 
 
 

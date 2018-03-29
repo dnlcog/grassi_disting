@@ -3,7 +3,7 @@
 /* Write in the file compact_tables.h the encryption tables for the chosen parameters. */
 /* The encryption tables are sbox, mix_col and, for i in [0, R-1] : */
 /* Te(i)[x] = Sbox[x].[MC[0][i], MC[1][i], ... , MC[R-1][i]]. */
-/* Each element is a row of at most four bytes written as a 4bytes integer. */
+/* Each element is a row of at most four 8 bits bytes written as a 32 bits integer. */
 
 #include "param_and_types.h"
 
@@ -16,11 +16,19 @@
 #define MIXC rijndael
 #endif
 
-byte power(byte, int);
-byte mult_by_X(byte);
-byte mult_bytes(byte, byte);
-int build_sbox_and_mix_col(byte *, byte **);
 
+
+byte8 power(byte8, int);
+byte8 mult_by_X(byte8);
+byte8 mult_bytes(byte8, byte8);
+int build_sbox_and_mix_col(byte8 *, byte8 **);
+
+
+
+
+/*
+The main function computes and prints the tables in a file.
+*/
 int main(void) {
 
   FILE *f_out;
@@ -39,10 +47,10 @@ int main(void) {
 
   
   /* Declare Sbox table and the Mixcolumns matrix. */
-  byte sbox[1 << E];
-  byte **mix_col = (byte**)malloc(R * sizeof(byte*));
+  byte8 sbox[1 << E];
+  byte8 **mix_col = (byte8**)malloc(R * sizeof(byte8*));
   for(int k = 0 ; k < R ; k++)
-    mix_col[k] = (byte*)malloc(R * sizeof(byte));
+    mix_col[k] = (byte8*)malloc(R * sizeof(byte8));
 
   /* Fill them according to the choices made in the preprocessor variables. */
   build_sbox_and_mix_col(sbox, mix_col);
@@ -51,7 +59,7 @@ int main(void) {
 
 
   /* Print the sbox table */
-  fprintf(f_out, "static const byte sbox[%d] = {\n", 1 << E);
+  fprintf(f_out, "static const byte8 sbox[%d] = {\n", 1 << E);
   
   /* l is the index of the line of the table k to be written. We choose 4 columns. */
   for(int l = 0 ; l < (1 << (E - 2)) ; l++) {
@@ -72,7 +80,7 @@ int main(void) {
 
 
   /* Print the mix_columns table. */
-  fprintf(f_out, "static const byte mix_col[%d][%d] = {\n", R, R);
+  fprintf(f_out, "static const byte8 mix_col[%d][%d] = {\n", R, R);
 
   for(int i = 0 ; i < R ; i++) {
     fprintf(f_out, "  {");
@@ -94,13 +102,13 @@ int main(void) {
 
 
   /* Print the Te_ tables. */
-  byte temp;
-  word to_print;
+  byte8 temp;
+  word32 to_print;
 
   /* k is the index of the encryption table to be written in the file. */
   for(int k = 0 ; k < R ; k++) {
 
-    fprintf(f_out, "static const word Te%d[%d] = {\n", k, 1 << E);
+    fprintf(f_out, "static const word32 Te%d[%d] = {\n", k, 1 << E);
 
     /* l is the index of the line of the table k to be written. We choose 4 columns. */
     for(int l = 0 ; l < (1 << (E - 2)) ; l++) {
@@ -139,15 +147,15 @@ int main(void) {
 }
 
 /* Fill the tables sbox and mix_col according to the preprocessor variables SBOX and MIXC. */
-int build_sbox_and_mix_col(byte *sbox, byte *mix_col[]) {
+int build_sbox_and_mix_col(byte8 *sbox, byte8 *mix_col[]) {
 
 #if SBOX == rijndael
 
-  byte i = 0;
+  byte8 i = 0;
 
   /* Inversion in the finite field. */
   for(int j = 0 ; j < (1 << E) ; j++) {
-    i = (byte)j;
+    i = (byte8)j;
     sbox[i] = power(i, (1 << E) - 2);
   }
 
@@ -155,7 +163,7 @@ int build_sbox_and_mix_col(byte *sbox, byte *mix_col[]) {
 #if E == 4
 
   for(int j = 0 ; j < (1 << E) ; j++) {
-    i = (byte)j;
+    i = (byte8)j;
     sbox[i] = 0x0f & (sbox[i] ^ 0x06 ^
       (sbox[i] >> 1) ^ (sbox[i] << 3) ^
       (sbox[i] >> 2) ^ (sbox[i] << 2));
@@ -164,7 +172,7 @@ int build_sbox_and_mix_col(byte *sbox, byte *mix_col[]) {
 #elif E == 8
 
   for(int j = 0 ; j < (1 << E) ; j++) {
-    i = (byte)j;
+    i = (byte8)j;
     sbox[i] = sbox[i] ^ 0x63 ^
       (sbox[i] >> 4) ^ (sbox[i] << 4) ^
       (sbox[i] >> 5) ^ (sbox[i] << 3) ^
@@ -179,14 +187,14 @@ int build_sbox_and_mix_col(byte *sbox, byte *mix_col[]) {
 #if MIXC == rijndael
 
 #if R == 1
-  byte mix_col_local[R][R] = {{0x01}};
+  byte8 mix_col_local[R][R] = {{0x01}};
 
 #elif R == 2
-  byte mix_col_local[R][R] = {{0x03, 0x02},
+  byte8 mix_col_local[R][R] = {{0x03, 0x02},
 			{0x02, 0x03}};
 
 #elif R == 4
-  byte mix_col_local[R][R] = {{0x02, 0x03, 0x01, 0x01},
+  byte8 mix_col_local[R][R] = {{0x02, 0x03, 0x01, 0x01},
 			{0x01, 0x02, 0x03, 0x01},
 			{0x01, 0x01, 0x02, 0x03},
 			{0x03, 0x01, 0x01, 0x02}};
@@ -203,9 +211,9 @@ int build_sbox_and_mix_col(byte *sbox, byte *mix_col[]) {
 }
 
 /* Computes x^n in the finite field. */
-byte power(byte x, int n) {
+byte8 power(byte8 x, int n) {
 
-  byte y = 0x01;
+  byte8 y = 0x01;
 
   for(int i = 0 ; i < n ; i++)
     y = mult_bytes(y, x);
@@ -214,26 +222,26 @@ byte power(byte x, int n) {
 }
 
 /* computes b times X where X is a root of the primitive polynomial. */
-byte mult_by_X(byte b) {
+byte8 mult_by_X(byte8 b) {
 
 #if E == 4
-  byte b3 = (b >> 3) & 0x01;
-  byte c = (b << 1) & 0x0f;
+  byte8 b3 = (b >> 3) & 0x01;
+  byte8 c = (b << 1) & 0x0f;
   return (c ^ (b3 << 1) ^ b3);
 
 #elif E == 8
-  byte b7 = (b >> 7) & 0x01;
-  byte c = b << 1;
+  byte8 b7 = (b >> 7) & 0x01;
+  byte8 c = b << 1;
   return (c ^ (b7 << 4) ^ (b7 << 3) ^ (b7 << 1) ^ b7);
 
 #endif
 }
 
 /* Computes a*b in the finite field. */
-byte mult_bytes(byte a, byte b) {
+byte8 mult_bytes(byte8 a, byte8 b) {
 
-  byte c = 0;
-  byte temp = a;
+  byte8 c = 0;
+  byte8 temp = a;
 
   for(int i = 0 ; i < E ; i++) {
     if((b >> i) & 0x01) {

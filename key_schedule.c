@@ -1,97 +1,84 @@
+/* key_schedule.c */
+
+
+/*
+This file contains all the relevant functions
+for the key generation or expansion.
+*/
+
+
+
+
 #include "aes.h"
 
-#if ROUNDKEYS == rijndael
 
-static const word rcon[] = {
+
+/* Round constants for the rijndael key schedule. */
+static const word32 rcon[] = {
     0x01000000, 0x02000000, 0x04000000, 0x08000000,
     0x10000000, 0x20000000, 0x40000000, 0x80000000,
     0x1B000000, 0x36000000
 };
 
-#if (R == 4) && (C == 4)
 
-int set_round_keys(const byte *userKey, AES_KEY *key) {
 
-  word *rk;
-  int nb_rounds;
-  int i = 0;
-  word temp;
 
-  nb_rounds = key->rounds;
-  rk = key->rd_key;
-  
-  get_word_from_bytes(userKey     , rk    );
-  get_word_from_bytes(userKey +  4, rk + 1);
-  get_word_from_bytes(userKey +  8, rk + 2);
-  get_word_from_bytes(userKey + 12, rk + 3);
-  while (1) {
-    temp  = rk[3];
-    rk[4] = rk[0] ^
-      (Te2[(temp >> 16) & 0xff] & 0xff000000) ^
-      (Te3[(temp >>  8) & 0xff] & 0x00ff0000) ^
-      (Te0[(temp      ) & 0xff] & 0x0000ff00) ^
-      (Te1[(temp >> 24)       ] & 0x000000ff) ^
-      rcon[i];
-    rk[5] = rk[1] ^ rk[4];
-    rk[6] = rk[2] ^ rk[5];
-    rk[7] = rk[3] ^ rk[6];
-    if (++i == nb_rounds) {
-      return(EXIT_SUCCESS);
-    }
-    rk += 4;
-  }
+int key_schedule_inner_function(word32 *my_word, int index);
+
+/* Rijndael key schedule inner function. */
+int key_schedule_inner_function(word32 *my_word, int index) {
+
+  static word32 temp = 0;
+  static word32 mask = (1 << (8 * (R - 1))) - 1;
+
+  temp = (*my_word >> (8 * (R - 1))) & 0xff;
+  temp ^= ((*my_word & mask) << 8);
+
+  *my_word = 0;
+  for(int i = 0 ; i < R ; i++)
+    *my_word ^= (word32)(sbox[(temp >> (8 * (R - i - 1))) & 0xff]) << (8 * (R - i - 1));
+
+  *my_word ^= rcon[index - 1];
+  return(EXIT_SUCCESS);
 }
 
-#else
-int key_schedule_inner_function(word *, int);
 
-int set_round_keys(const byte *userKey, AES_KEY *key) {
+/* Rijndael key expansion procedure. */
+int set_round_keys_rijndael(const byte8 *userKey, AES_KEY *key) {
 
-  word *rk;
+  word32 *rk;
   int nb_rounds;
-  
+  int i;
+  word32 temp;
+
   nb_rounds = key->rounds;
   rk = key->rd_key;
 
-  for(int i = 0 ; i < C ; i++)
+  for(i = 0 ; i < K ; i++)
     get_word_from_bytes(userKey + (R * i), rk + i);
 
-  word temp;
-
-  for(int i = C ; i < (nb_rounds + 1) * C ; i++) {
+  for(i = K ; i < (nb_rounds + 1) * C ; i++) {
     temp = rk[i-1];
    
-    if(!(i % C))
-      key_schedule_inner_function(&temp);
+    if((i % K) == 0)
+      key_schedule_inner_function(&temp, i/K);
 
-    rk[i] = rk[i - C] ^ temp;
+    rk[i] = rk[i - K] ^ temp;
   }
 
   return(EXIT_SUCCESS);
 }
 
-int key_schedule_inner_function(word *my_word, int index) {
-  byte my_bytes[R];
-  get_bytes_from_word(*my_word, my_bytes);
-  for(int i = 0 ; i < R ; i++)
-    my_bytes[i] = sbox[my_bytes[(i + 1) % R]];
-  get_word_from_bytes(my_bytes, my_word);
-  *my_word ^= rcon[index/C];
-  return(EXIT_SUCCESS);
-}
 
-#endif
 
-#elif ROUNDKEYS == random
+/* Key schedule set with random keys. */
+int set_round_keys_random(AES_KEY *key) {
 
-int set_round_keys(const byte *useless, AES_KEY *key) {
-
-  printf("ici\n");
-  word *rk = key->rd_key;
+  word32 *rk = key->rd_key;
   int nb_rounds = key->rounds;
 
   for(int i = 0 ; i < (nb_rounds + 1) * C ; i++) {
-    rk[i] = (word)(i);
+    rk[i] = (word32)(i);
 #if E == 4
     rk[i] &= 0x0f0f0f0f;
 #endif
@@ -102,15 +89,9 @@ int set_round_keys(const byte *useless, AES_KEY *key) {
 
 
 
-
-
-#endif
-	
-
-
 void init_AES_KEY(const int nb_rounds, AES_KEY *key) {
   key->rounds = nb_rounds;
-  key->rd_key = (word*)malloc((nb_rounds + 1) * C * sizeof(word));
+  key->rd_key = (word32*)malloc((nb_rounds + 1) * C * sizeof(word32));
 }
 
 

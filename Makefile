@@ -1,33 +1,67 @@
 CC = gcc
-O_FLAGS = -c -g
-DO_FLAGS = -c -g -O3
+O_FLAGS = -c -O3
+DO_FLAGS = -c -g
 
-d : utilities.o key_schedule.o aes_core.o distinguisher.o
-	$(CC) -o $@  utilities.o key_schedule.o aes_core.o distinguisher.o
+HEADERS = aes.h param_and_types.h compact_tables.h
+OBJECTS = utilities.o key_schedule.o aes_core.o
 
-distinguisher.o : distinguisher.c aes.h param_and_types.h compact_tables.h
-	$(CC) -o $@ $(O_FLAGS) distinguisher.c
+DISTING_O = $(OBJECTS) distinguisher.o
+DISTING_DO = $(DISTING_O:.o=.do)
 
-aes_core_test : aes_core.o key_schedule.o utilities.o
-	$(CC) -o $@ aes_core.o  key_schedule.o utilities.o
+AES_O = $(OBJECTS) aes_test.o
+AES_DO = $(AES_O:.o=.do)
 
-aes_core.o : aes_core.c aes.h param_and_types.h compact_tables.h
-	$(CC) -o $@ $(O_FLAGS) aes_core.c
 
-key_schedule.o : key_schedule.c aes.h param_and_types.h compact_tables.h
-	$(CC) -o $@ $(O_FLAGS) key_schedule.c
 
-utilities.o : utilities.c aes.h param_and_types.h compact_tables.h
-	$(CC) -o $@ $(O_FLAGS) utilities.c
+.SUFFIXES : .c .o .do
+.c.o :; $(CC) -o $@ $(O_FLAGS) $*.c
+.c.do :; $(CC) -o $@ $(DO_FLAGS) $*.c
+
+
+
+
+disting : $(DISTING_O)
+	$(CC) -o $@ $^
+disting.db : $(DISTING_DO)
+	$(CC) -o $@ $^
+
+aes_test : $(AES_O)
+	$(CC) -o $@ $^
+aes_test.db : $(AES_DO)
+	$(CC) -o $@ $^
+
+
+
+
+distinguisher.o distinguisher.do : distinguisher.c $(HEADERS)
+
+aes_test.o      aes_test.do      : aes_test.c      $(HEADERS)
+
+aes_core.o      aes_core.do      : aes_core.c      $(HEADERS)
+
+key_schedule.o  key_schedule.do  : key_schedule.c  $(HEADERS)
+
+utilities.o     utilities.do     : utilities.c     $(HEADERS)
+
+
+
+
 
 compact_tables.h : tables_generator_exe
 	./$<
 
-tables_generator_exe : tables_generator.c param_and_types.h
-	$(CC) -o $@ tables_generator.c
+tables_generator_exe : tables_generator.o
+	$(CC) -o $@ $^
+tables_generator_exe.db : tables_generator.do
+	$(CC) -o $@ $^
+
+tables_generator.o tables_generator.do : tables_generator.c param_and_types.h
+
+
+
 
 clean :
-	rm -f d distinguisher.o aes_core.o key_schedule.o compact_tables.h
+	rm -f disting aes_test tables_generator_exe *.db *.o *.do compact_tables.h
 
 
 
