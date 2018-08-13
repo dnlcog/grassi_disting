@@ -42,6 +42,7 @@ void print_state_array(word32 *);
 void print_bytes(byte8 *, unsigned int);
 void get_state_array_from_bytes(const byte8 *, word32 *);
 void get_bytes_from_state_array(const word32 *, byte8 *);
+void next_plaintext(word32 *, const int);
 
 
 #endif

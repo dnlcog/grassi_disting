@@ -21,7 +21,7 @@
 byte8 power(byte8, int);
 byte8 mult_by_X(byte8);
 byte8 mult_bytes(byte8, byte8);
-int build_sbox_and_mix_col(byte8 *, byte8 **);
+int build_sbox_and_mix_col(byte8 *, byte8 *, byte8 **, byte8 **);
 
 
 
@@ -48,12 +48,16 @@ int main(void) {
   
   /* Declare Sbox table and the Mixcolumns matrix. */
   byte8 sbox[1 << E];
+  byte8 inv_sbox[1 << E];
   byte8 **mix_col = (byte8**)malloc(R * sizeof(byte8*));
   for(int k = 0 ; k < R ; k++)
     mix_col[k] = (byte8*)malloc(R * sizeof(byte8));
+  byte8 **inv_mix_col = (byte8**)malloc(R * sizeof(byte8*));
+  for(int k = 0 ; k < R ; k++)
+    inv_mix_col[k] = (byte8*)malloc(R * sizeof(byte8));
 
   /* Fill them according to the choices made in the preprocessor variables. */
-  build_sbox_and_mix_col(sbox, mix_col);
+  build_sbox_and_mix_col(sbox, inv_sbox, mix_col, inv_mix_col);
 
 
 
@@ -79,6 +83,25 @@ int main(void) {
 
 
 
+  /* Print the inv_sbox table */
+  fprintf(f_out, "static const byte8 inv_sbox[%d] = {\n", 1 << E);
+  
+  for(int l = 0 ; l < (1 << (E - 2)) ; l++) {
+    fprintf(f_out, "  ");
+    
+    for(int m = 0 ; m < 4 ; m++) {
+      fprintf(f_out, "0x%xU", inv_sbox[(4 * l) + m]);
+      if(((4 * l) + m) != ((1 << E) - 1))
+	fprintf(f_out, ", ");
+    }
+
+    fprintf(f_out, "\n");
+  }
+
+  fprintf(f_out, "};\n\n");
+
+
+
   /* Print the mix_columns table. */
   fprintf(f_out, "static const byte8 mix_col[%d][%d] = {\n", R, R);
 
@@ -86,6 +109,28 @@ int main(void) {
     fprintf(f_out, "  {");
     for(int j = 0 ; j < R ; j++) {
       fprintf(f_out, "0x%xU", mix_col[i][j]);
+      if(j != (R - 1))
+	fprintf(f_out, ", ");
+      else
+	fprintf(f_out, "}");
+    }
+    if(i != (R - 1))
+      fprintf(f_out, ",");
+    fprintf(f_out, "\n");
+  }
+  fprintf(f_out, "};\n\n");
+  
+
+
+
+
+  /* Print the inv_mix_columns table. */
+  fprintf(f_out, "static const byte8 inv_mix_col[%d][%d] = {\n", R, R);
+
+  for(int i = 0 ; i < R ; i++) {
+    fprintf(f_out, "  {");
+    for(int j = 0 ; j < R ; j++) {
+      fprintf(f_out, "0x%xU", inv_mix_col[i][j]);
       if(j != (R - 1))
 	fprintf(f_out, ", ");
       else
@@ -137,9 +182,49 @@ int main(void) {
     fprintf(f_out, "};\n\n");
   }
 
+
+
+
+
+
+  /* Print the Td_ tables. */
+
+  for(int k = 0 ; k < R ; k++) {
+
+    fprintf(f_out, "static const word32 Td%d[%d] = {\n", k, 1 << E);
+
+    for(int l = 0 ; l < (1 << (E - 2)) ; l++) {
+      fprintf(f_out, "  ");
+
+      for(int m = 0 ; m < 4 ; m++) {
+
+	temp = inv_sbox[(4 * l) + m];
+
+	to_print = 0x00000000U;
+	for(int i = 0 ; i < R ; i++)
+	  to_print ^= (mult_bytes(temp, inv_mix_col[i][k]) << (2 * 4 * (R - i - 1)));
+	
+	fprintf(f_out, "0x%xU", to_print);
+
+	if(((4 * l) + m) != ((1 << E) - 1))
+	  fprintf(f_out, ", ");
+      }
+
+      fprintf(f_out, "\n");
+    }
+
+    fprintf(f_out, "};\n\n");
+  }
+
+
+
   for(int k = 0 ; k < R ; k++)
     free(mix_col[k]);
   free(mix_col);
+
+  for(int k = 0 ; k < R ; k++)
+    free(inv_mix_col[k]);
+  free(inv_mix_col);
 
   fclose(f_out);
   return(EXIT_SUCCESS);
@@ -147,7 +232,7 @@ int main(void) {
 }
 
 /* Fill the tables sbox and mix_col according to the preprocessor variables SBOX and MIXC. */
-int build_sbox_and_mix_col(byte8 *sbox, byte8 *mix_col[]) {
+int build_sbox_and_mix_col(byte8 *sbox, byte8 *inv_sbox, byte8 *mix_col[], byte8 *inv_mix_col[]) {
 
 #if SBOX == rijndael
 
@@ -184,13 +269,28 @@ int build_sbox_and_mix_col(byte8 *sbox, byte8 *mix_col[]) {
 
 #endif
 
+  /* Inverse sbox. */
+  for(int j = 0 ; j < (1 << E) ; j++) {
+    i = (byte8)j;
+    for(int k = 0 ; k < (1 << E) ; k++) {
+      if(sbox[k] == i) {
+	inv_sbox[i] = (byte8)k;
+	break;
+      }
+    }
+  }
+    
+
 #if MIXC == rijndael
 
 #if R == 1
   byte8 mix_col_local[R][R] = {{0x01}};
+  byte8 inv_mix_col_local[R][R] = {{0x01}};
 
 #elif R == 2
   byte8 mix_col_local[R][R] = {{0x03, 0x02},
+			{0x02, 0x03}};
+  byte8 inv_mix_col_local[R][R] = {{0x03, 0x02},
 			{0x02, 0x03}};
 
 #elif R == 4
@@ -198,11 +298,18 @@ int build_sbox_and_mix_col(byte8 *sbox, byte8 *mix_col[]) {
 			{0x01, 0x02, 0x03, 0x01},
 			{0x01, 0x01, 0x02, 0x03},
 			{0x03, 0x01, 0x01, 0x02}};
+  byte8 inv_mix_col_local[R][R] = {{0x0e, 0x0b, 0x0d, 0x09},
+			{0x09, 0x0e, 0x0b, 0x0d},
+			{0x0d, 0x09, 0x0e, 0x0b},
+			{0x0b, 0x0d, 0x09, 0x0e}};
 #endif
 
   for(int i = 0 ; i < R ; i++)
     for(int j = 0 ; j < R ; j++)
       mix_col[i][j] = mix_col_local[i][j];
+  for(int i = 0 ; i < R ; i++)
+    for(int j = 0 ; j < R ; j++)
+      inv_mix_col[i][j] = inv_mix_col_local[i][j];
   
 #endif
 

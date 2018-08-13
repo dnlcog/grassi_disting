@@ -51,3 +51,25 @@ void get_bytes_from_state_array(const word32 *state_array, byte8 *my_bytes) {
     get_bytes_from_word(state_array[j], my_bytes + (R * j));
 }
 
+/* Rewrite the state array with its next plaintext. */
+void next_plaintext(word32 *state_array, const int i) {
+
+  int k = 0;
+  word32 temp;
+  
+  while(k < R) {
+    temp = ((state_array[(i + k) % C] >> (8 * (R - k - 1))) + 1) & 0xff;
+#if E == 4
+    temp = temp & 0x0f;
+#endif
+    state_array[(i + k) % C] = temp << (8 * (R - k - 1));
+    if(temp == 0)
+      k++;
+    else
+      k = R;
+  }
+}
+
+
+
+

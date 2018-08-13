@@ -16,8 +16,6 @@ It writes the results in a .csv file.
 
 
 
-void next_plaintext(word32 *, const int);
-
 int count_5_rounds_collisions(const int, const int, const AES_KEY *, int64 *);
 
 
@@ -115,28 +113,6 @@ int count_5_rounds_collisions(const int i, const int j, const AES_KEY *key, int6
 
   return(EXIT_SUCCESS);
 }
-
-
-
-/* Rewrite the state array with its next plaintext. */
-void next_plaintext(word32 *state_array, const int i) {
-
-  int k = 0;
-  word32 temp;
-  
-  while(k < R) {
-    temp = ((state_array[(i + k) % C] >> (8 * (R - k - 1))) + 1) & 0xff;
-#if E == 4
-    temp = temp & 0x0f;
-#endif
-    state_array[(i + k) % C] = temp << (8 * (R - k - 1));
-    if(temp == 0)
-      k++;
-    else
-      k = R;
-  }
-}
-
 
 
 
